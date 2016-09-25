@@ -62,7 +62,7 @@ class TCurve(object):
         return result
     
     def integrate(self, t, n, f):
-        pass
+        return 1.0
         
         
     
