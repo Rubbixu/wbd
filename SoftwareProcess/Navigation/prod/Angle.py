@@ -15,10 +15,10 @@ class Angle():
         else:
             if (not(isinstance(degrees, (int, float)))):
                 raise ValueError('Angle.setDegrees:  The input should be a integer or float')
-            self.angle = float(degrees)
+            self.angle = round(degrees * 60.0,1)/60.0
             while self.angle < 0:
                 self.angle = self.angle + 360
-            while self.angle > 360:
+            while self.angle >= 360:
                 self.angle = self.angle - 360         
         return self.angle
      
@@ -48,7 +48,7 @@ class Angle():
             self.angle = integpart + floatpartcheck / 60
         while self.angle < 0:
             self.angle = self.angle + 360
-        while self.angle > 360:
+        while self.angle >= 360:
             self.angle = self.angle - 360         
         return self.angle       
             
@@ -56,15 +56,19 @@ class Angle():
         
     
         
-    def add(self, angle):
+    def add(self, angle=None):
+        if angle is None:
+            raise ValueError('Angle.add:  No input')
         if (not(isinstance(angle, Angle))):
             raise ValueError('Angle.add:  The input should be an angle')
         self.angle = self.angle + angle.angle
-        while self.angle > 360:
+        while self.angle >= 360:
             self.angle = self.angle - 360
         return self.angle
         
-    def subtract(self, angle):
+    def subtract(self, angle=None):
+        if angle is None:
+            raise ValueError('Angle.subtract:  No input')
         if (not(isinstance(angle, Angle))):
             raise ValueError('Angle.subtract:  The input should be an angle')
         self.angle = self.angle - angle.angle
@@ -72,7 +76,9 @@ class Angle():
             self.angle = self.angle + 360
         return self.angle
     
-    def compare(self, angle):
+    def compare(self, angle=None):
+        if angle is None:
+            raise ValueError('Angle.compare:  No input')
         if (not(isinstance(angle, Angle))):
             raise ValueError('Angle.compare:  The input should be an angle')
         if self.angle == angle.angle:
@@ -92,4 +98,4 @@ class Angle():
     
     
     def getDegrees(self):
-        return round(self.angle, 1)
+        return self.angle
