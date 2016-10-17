@@ -1,0 +1,12 @@
+<fix>
+  <sighting>
+    <date>2016,03,01</date>
+    <time>80:40:01</time>
+    <observation>0d89</observation>
+    <height>a</height>
+    <temperature>10.1</temperature>
+    <pressure>9000</pressure>
+    <horizon>wronghorizon</horizon>
+  </sighting>
+</fix>
+	
