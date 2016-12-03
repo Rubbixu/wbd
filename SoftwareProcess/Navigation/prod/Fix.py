@@ -1,6 +1,6 @@
 '''
     CA02 by LZX0014
-
+ 
 '''
 import time as _time
 import Angle as angle
@@ -8,33 +8,35 @@ from datetime import tzinfo, timedelta, datetime
 from xml.dom.minidom import parse
 from math import sqrt, tan, pi
 import os
+ 
 
+ZERO = timedelta(0)
 
 STDOFFSET = timedelta(seconds=-_time.timezone)
 if _time.daylight:
     DSTOFFSET = timedelta(seconds=-_time.altzone)
 else:
     DSTOFFSET = STDOFFSET
-
+ 
 DSTDIFF = DSTOFFSET - STDOFFSET
-
+ 
 class LocalTimezone(tzinfo):
-
+ 
     def utcoffset(self, dt):
         if self._isdst(dt):
             return DSTOFFSET
         else:
             return STDOFFSET
-
+ 
     def dst(self, dt):
         if self._isdst(dt):
             return DSTDIFF
         else:
-            return 0
-
+            return ZERO
+ 
     def tzname(self, dt):
         return _time.tzname[self._isdst(dt)]
-
+ 
     def _isdst(self, dt):
         tt = (dt.year, dt.month, dt.day,
               dt.hour, dt.minute, dt.second,
@@ -42,18 +44,18 @@ class LocalTimezone(tzinfo):
         stamp = _time.mktime(tt)
         tt = _time.localtime(stamp)
         return tt.tm_isdst > 0
-
+ 
 localtime = LocalTimezone()
-
+ 
 def LogTimeStamp():
     return datetime.now(localtime).replace(microsecond=0).isoformat(' ')
-
+ 
 class Fix():
-
+ 
     def writeLogEntry(self, logFile, stringEntry):
         with open(logFile, "a+") as openlog:
             openlog.write("LOG:\t" + LogTimeStamp() + "\t" + stringEntry + "\n")
-
+ 
     def __init__(self, logFile=None):
         functionName = "Fix.__init__:  "
         if logFile == None:
@@ -71,7 +73,7 @@ class Fix():
         self.sightingFile = ""
         self.ariesFile = ""
         self.starFile = ""
-        
+         
     def setSightingFile(self, sightingFile=None):
         functionName = "Fix.setSightingFile:  "
         if not(isinstance(sightingFile, str)):
@@ -87,8 +89,8 @@ class Fix():
         self.sightingFile = sightingFile
         logString = "Sighting file:\t" + os.path.abspath(self.sightingFile)
         self.writeLogEntry(self.logFile, logString)
-        return self.sightingFile
-    
+        return os.path.abspath(self.sightingFile)
+     
     def setAriesFile(self, ariesFile=None):
         functionName = "Fix.setAriesFile:  "
         if not(isinstance(ariesFile, str)):
@@ -105,7 +107,7 @@ class Fix():
         logString = "Aries file:\t" + os.path.abspath(self.ariesFile)
         self.writeLogEntry(self.logFile, logString)
         return os.path.abspath(self.ariesFile)
-    
+     
     def setStarFile(self, starFile=None):
         functionName = "Fix.setStarFile:  "
         if not(isinstance(starFile, str)):
@@ -122,14 +124,14 @@ class Fix():
         logString = "Star file:\t" + os.path.abspath(self.starFile)
         self.writeLogEntry(self.logFile, logString)
         return os.path.abspath(self.starFile)
-    
-    
+     
+     
     def _getText(self, sighting, tagName):
         elementNodelist = sighting.getElementsByTagName(tagName)
         textNodelist = elementNodelist[0].childNodes
         data = textNodelist[0].data
         return data
-        
+         
     def getBody(self, sighting):
         try:
             bodyText = self._getText(sighting, "body")
@@ -137,7 +139,7 @@ class Fix():
             raise ValueError('Fix.getSightings:  "body" is missing in the sighting')
         bodyString = str(bodyText)
         return bodyString 
-    
+     
     def getDate(self, sighting):
         try:
             dateText = self._getText(sighting, "date")
@@ -145,14 +147,14 @@ class Fix():
             raise ValueError('Fix.getSightings:  "date" is missing in the sighting')
         dateString = str(dateText)
         return self.validateDate(dateString) 
-    
+     
     def validateDate(self, dateString):
         try:
             date = datetime.strptime(dateString, '%Y-%m-%d').date()
             return date
         except ValueError:
             raise ValueError('Fix.getSightings:  Wrong date format')
-        
+         
     def getTime(self, sighting):
         try:
             timeText = self._getText(sighting, "time")
@@ -160,14 +162,14 @@ class Fix():
             raise ValueError('Fix.getSightings:  "time" is missing in the sighting')
         timeString = str(timeText)
         return self.validateTime(timeString)
-    
+     
     def validateTime(self, timeString):
         try:
             time = datetime.strptime(timeString, '%X').time()
             return time
         except ValueError:
             raise ValueError('Fix.getSightings:  Wrong time format') 
-    
+     
     def getObservedAltitude(self, sighting):
         try:
             angleText = self._getText(sighting, "observation")
@@ -175,7 +177,7 @@ class Fix():
             raise ValueError('Fix.getSightings:  "observation" is missing in the sighting')
         angleString = str(angleText)
         return self.validateObservation(angleString)
-        
+         
     def validateObservation(self, angleString):
         functionName = "Fix.getSightings:  "
         parts = angleString.partition ('d')
@@ -198,7 +200,7 @@ class Fix():
         observedAltitude = angle.Angle()
         observedAltitude.setDegreesAndMinutes(angleString)
         return observedAltitude
-
+ 
     def getHeight(self, sighting):
         functionName = "Fix.getSightings:  "
         try:
@@ -213,7 +215,7 @@ class Fix():
             return height
         else:
             raise ValueError(functionName + "Height should be greater than 0")
-    
+     
     def getTemperature(self, sighting):
         functionName = "Fix.getSightings:  "
         try:
@@ -228,7 +230,7 @@ class Fix():
             return temperature
         else:
             raise ValueError(functionName + "Temperature should be in [-20,120]")
-            
+             
     def getPressure(self, sighting):
         functionName = "Fix.getSightings:  "
         try:
@@ -243,7 +245,7 @@ class Fix():
             return pressure
         else:
             raise ValueError(functionName + "Pressure should be in [100,1100]")        
-    
+     
     def isHorizonNatural(self, sighting):
         functionName = "Fix.getSightings:  "
         try:
@@ -257,14 +259,14 @@ class Fix():
             return False
         else:
             raise ValueError(functionName + "Horizon category can not be identified")   
-    
+     
     def calculateDip(self, isHorizonNatural, height):
         if isHorizonNatural:
             dip = (-0.97 * sqrt(height)) / 60
         else:
             dip = 0
         return dip
-    
+     
     def calculateRefraction(self, observedAltitude, pressure, temperature):        
         functionName = "Fix.getSightings:  "
         minimumAngle = angle.Angle()
@@ -276,7 +278,7 @@ class Fix():
             observedAltitudeInRadian = observedAltitude.getDegrees() / 180 * pi           
             refraction = (-0.00452 * pressure) / (273 + temperatureInC) / tan(observedAltitudeInRadian)
         return refraction
-    
+     
     def getAdjustedAltitude(self, sighting):
         observedAltitude = self.getObservedAltitude(sighting)
         height = self.getHeight(sighting)
@@ -289,7 +291,7 @@ class Fix():
         adjustedAltitude = angle.Angle()
         adjustedAltitude.setDegrees(adjustedAltitudeDegree)
         return adjustedAltitude.getString()        
-        
+         
     def getGeographicLatitude(self, body, date):    
         functionName = "Fix.getSightings:  "
         starFile = open(self.starFile, "r")
@@ -306,7 +308,7 @@ class Fix():
                 else:
                     return latitude
         raise ValueError(functionName + "can not find star body in star file")
-    
+     
     def getSHA(self, body, date):
         functionName = "Fix.getSightings:  "
         starFile = open(self.starFile, "r")
@@ -320,7 +322,7 @@ class Fix():
                 else:
                     return SHA
         raise ValueError(functionName + "can not find star body in star file")
-    
+     
     def extractGHA(self, datetime, datetimeInformation, GHA1, GHA2):
         GHA1A = angle.Angle()
         GHA2A = angle.Angle()
@@ -334,7 +336,7 @@ class Fix():
         GHADA.setDegrees(GHADdegree)
         GHA1A.add(GHADA)
         return GHA1A
-    
+     
     def getGHA(self, datetime):
         functionName = "Fix.getSightings:  "
         ariesFile = open(self.ariesFile, "r")
@@ -356,7 +358,7 @@ class Fix():
                 except Exception:
                     raise ValueError(functionName + "Invalid aries file")
         raise ValueError(functionName + "Invalid aries file")
-        
+         
     def getGeographicLongitude(self, body, date, datetime):
         SHA = angle.Angle()
         SHAstring = self.getSHA(body, date)
@@ -364,8 +366,8 @@ class Fix():
         GHA = self.getGHA(datetime)
         GHA.add(SHA)
         return GHA.getString()            
-            
-        
+             
+         
     def getSightings(self):
         functionName = "Fix.getSightings:  "
         errorNum = 0
@@ -400,8 +402,9 @@ class Fix():
         for sighting in sightingList:
             logString = sighting[0] + "\t" + sighting[1].isoformat() + "\t" + sighting[2].isoformat() + "\t" + sighting[3] + "\t" + sighting[5] + "\t" + sighting[6]
             self.writeLogEntry(self.logFile, logString)
-        self.writeLogEntry(self.logFile, "Sighting Errors:\t" + str(errorNum))
+        self.writeLogEntry(self.logFile, "Sighting errors:\t" + str(errorNum))
         self.writeLogEntry(self.logFile, "End of sighting file:\t" + self.sightingFile)
         approximateLatitude = "0d0.0"
         approximateLongtitude = "0d0.0"
         return (approximateLatitude, approximateLongtitude)
+
