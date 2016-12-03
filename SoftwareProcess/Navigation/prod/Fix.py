@@ -6,9 +6,9 @@ import time as _time
 import Angle as angle
 from datetime import tzinfo, timedelta, datetime
 from xml.dom.minidom import parse
-from math import sqrt, tan, pi
+from math import sqrt, tan, pi,sin,cos,asin,acos
 import os
- 
+import copy
 
 ZERO = timedelta(0)
 
@@ -367,9 +367,113 @@ class Fix():
         GHA.add(SHA)
         return GHA.getString()            
              
-         
-    def getSightings(self):
+    def validatelagitude(self, angleString):
         functionName = "Fix.getSightings:  "
+        if not(angleString == "0d0.0"):
+            hemisphereIndicator = angleString[0]
+            if not(hemisphereIndicator == "N") and not(hemisphereIndicator == "S"):                
+                raise ValueError(functionName + "Can not determine the hemisphere")
+            angleStringTemp = angleString[1:]
+            if angleStringTemp == "0d0.0":
+                raise ValueError(functionName + "No h before 0d0.00")
+            parts = angleStringTemp.partition ('d')
+            if (not(parts[1] == 'd')):
+                raise ValueError(functionName + 'wrong observation format, d is missing')
+            try:
+                integpart = int(parts[0])
+            except ValueError:
+                raise ValueError(functionName + 'wrong observation format, X should be a integer')
+            if not(0 <= integpart < 90):
+                raise ValueError(functionName + 'wrong observation format, X should be in [0,90)')
+            try:
+                floatpart = float(parts[2])
+            except ValueError:
+                raise ValueError(functionName + 'wrong observation format, y should be float or integer')
+            if not(0.0 <= floatpart < 60.0):
+                raise ValueError(functionName + 'wrong observation format, y should be in [0.0,60.0)')
+            if (not(floatpart == round(floatpart, 1))):
+                raise ValueError(functionName + 'wrong observation format, y should only have one digit')
+        return angleString
+    
+    def validateLongitude(self, angleString):
+        functionName = "Fix.getSightings:  "
+        parts = angleString.partition ('d')
+        if (not(parts[1] == 'd')):
+            raise ValueError(functionName + 'wrong observation format, d is missing')
+        try:
+            integpart = int(parts[0])
+        except ValueError:
+            raise ValueError(functionName + 'wrong observation format, X should be a integer')
+        if not(0 <= integpart < 360):
+            raise ValueError(functionName + 'wrong observation format, X should be in [0,360)')
+        try:
+            floatpart = float(parts[2])
+        except ValueError:
+            raise ValueError(functionName + 'wrong observation format, y should be float or integer')
+        if not(0.0 <= floatpart < 60.0):
+            raise ValueError(functionName + 'wrong observation format, y should be in [0.0,60.0)')
+        if (not(floatpart == round(floatpart, 1))):
+            raise ValueError(functionName + 'wrong observation format, y should only have one digit')
+        return angleString   
+    
+    def calculateArcMinute(self,angleString1,angleString2):
+        parts1 = angleString1.partition ('d')
+        parts2 = angleString2.partition ('d')
+        if int(parts1[0])<0:
+            f1 = -float(parts1[2])
+        else:
+            f1 = float(parts1[2])
+        if int(parts2[0])<0:
+            f2 = -float(parts2[2])
+        else:
+            f2 = float(parts2[2])
+        arcMinute = round((int(parts1[0])-int(parts2[0]))*60 + f1 - f2)
+        return arcMinute
+    
+    def adjustPosition(self,geoLong,asuLong,geoLat,asuLat,adjAlt):
+        if asuLat[0] == "N":
+            asuLat = asuLat[1:]
+        else:
+            asuLat = "-" + asuLat[1:]
+        gLo = angle.Angle()
+        aLo = angle.Angle()
+        gLa = angle.Angle()
+        aLa = angle.Angle()
+        gLo.setDegreesAndMinutes(geoLong)
+        aLo.setDegreesAndMinutes(asuLong)
+        gLa.setDegreesAndMinutes(geoLat)
+        aLa.setDegreesAndMinutes(asuLat)
+        gLo.add(aLo)
+        LHAD = gLo.getDegrees()/180*pi
+        gLaD = gLa.getDegrees()/180*pi
+        aLaD = aLa.getDegrees()/180*pi
+        sinlat1 = sin(gLaD)
+        sinlat2 = sin(aLaD)
+        coslat1 = cos(gLaD)
+        coslat2 = cos(aLaD)
+        intermediate_distance = sinlat1*sinlat2+cos(LHAD)*coslat1*coslat2
+        corrected_altitude = asin(intermediate_distance)
+        corAltA = angle.Angle()
+        if corrected_altitude < 0:
+            corAltA.setDegrees(-corrected_altitude/pi*180)
+            distance_adjustment = - self.calculateArcMinute(corAltA.getString(), "-"+adjAlt)
+        else:
+            corAltA.setDegrees(corrected_altitude/pi*180)
+            distance_adjustment = self.calculateArcMinute(corAltA.getString(), adjAlt)
+        numerator = sinlat1-sinlat2*intermediate_distance
+        denominator = coslat2 * cos(corrected_altitude)
+        internedia_azimuth = numerator/denominator
+        azimuth_adjustment = acos(internedia_azimuth)
+        adjAziA = angle.Angle()
+        adjAziA.setDegrees(azimuth_adjustment/pi*180)
+        return adjAziA.getString(),distance_adjustment,azimuth_adjustment
+
+        
+         
+    def getSightings(self,assumedLatitude="0d0.0",assumedLongitude="0d0.0"):
+        functionName = "Fix.getSightings:  "
+        LatAsu=self.validatelagitude(assumedLatitude)
+        LonAsu=self.validateLongitude(assumedLongitude)
         errorNum = 0
         if self.sightingFile == "":
             raise ValueError(functionName + "No sighting files has bee set")
@@ -395,16 +499,51 @@ class Fix():
                 latitude = self.getGeographicLatitude(body, date)
                 longitude = self.getGeographicLongitude(body, date, combinedDatetime)
                 adjustedaltitude = self.getAdjustedAltitude(sighting)
-                sightingList.append((body, date, time, adjustedaltitude, combinedDatetime, latitude, longitude))
+                addInfo=self.adjustPosition(longitude,LonAsu,latitude,LatAsu,adjustedaltitude)
+                sightingList.append((body, date, time, adjustedaltitude, combinedDatetime, latitude, longitude,\
+                                     addInfo))
+                
             except ValueError:
                 errorNum += 1
         sightingList.sort(key=lambda s:(s[4], s[0]))
+        sumLat = 0
+        sumLon = 0
         for sighting in sightingList:
-            logString = sighting[0] + "\t" + sighting[1].isoformat() + "\t" + sighting[2].isoformat() + "\t" + sighting[3] + "\t" + sighting[5] + "\t" + sighting[6]
+            sumLat += sighting[7][1] * cos(sighting[7][2])
+            sumLon += sighting[7][1] * sin(sighting[7][2])
+            logString = sighting[0] + "\t" + sighting[1].isoformat() + "\t" + sighting[2].isoformat() + "\t" + sighting[3] \
+            + "\t" + sighting[5] + "\t" + sighting[6] + "\t" + LatAsu + "\t" + LonAsu\
+            + "\t" + sighting[7][0] + "\t" + str(sighting[7][1])
             self.writeLogEntry(self.logFile, logString)
         self.writeLogEntry(self.logFile, "Sighting errors:\t" + str(errorNum))
         self.writeLogEntry(self.logFile, "End of sighting file:\t" + self.sightingFile)
-        approximateLatitude = "0d0.0"
-        approximateLongtitude = "0d0.0"
-        return (approximateLatitude, approximateLongtitude)
+        sumLat /= 60
+        sumLon /= 60
+        latAsA = angle.Angle()
+        lonAsA = angle.Angle()
+        latApA = angle.Angle()
+        lonApA = angle.Angle()
+        if LatAsu == "0d0.0":
+            latAsA.setDegreesAndMinutes(LatAsu)
+        else:
+            latAsA.setDegreesAndMinutes(LatAsu[1:])
+        lonAsA.setDegreesAndMinutes(LonAsu)
+        lonApD = lonAsA.getDegrees() + sumLon
+        lonApA.setDegrees(lonApD)
+        approximateLongitude = lonApA.getString()
+        if LatAsu[0] == "S":
+            latApD = -1*latAsA.getDegrees() + sumLat
+        else:
+            latApD = latAsA.getDegrees() + sumLat
+        if latApD == 0:   
+            approximateLatitude = "0d0.0"
+        elif latApD > 0:
+            latApA.setDegrees(latApD)
+            approximateLatitude = "N" + latApA.getString()
+        else:
+            latApA.setDegrees(-latApD)
+            approximateLatitude = "S" + latApA.getString()
+        self.writeLogEntry(self.logFile, "Approximate latitude:\t" + approximateLatitude +"\t"\
+                           "Approximate longitude:\t" + approximateLongitude)
+        return (approximateLatitude, approximateLongitude)
 
